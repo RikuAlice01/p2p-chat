@@ -4,6 +4,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const offerEl = document.getElementById("offer");
   const answerEl = document.getElementById("answer");
   const chatBox = document.getElementById("chatBox");
+  const CHAT_STORAGE_KEY = "p2pChatHistory";
 
   let peerConnection;
   let dataChannel;
@@ -13,6 +14,22 @@ document.addEventListener("DOMContentLoaded", () => {
   let receivedBuffers = [];
   let receivedSize = 0;
 
+  // 🧠 Load saved messages
+  function loadChatHistory() {
+    const history = JSON.parse(localStorage.getItem(CHAT_STORAGE_KEY) || "[]");
+    history.forEach(entry => {
+      appendBubble(entry.message, entry.sender);
+    });
+  }
+
+  // 💾 Save message
+  function saveMessageToHistory(sender, message) {
+    const history = JSON.parse(localStorage.getItem(CHAT_STORAGE_KEY) || "[]");
+    history.push({ sender, message, time: new Date().toISOString() });
+    localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(history));
+  }
+
+  // 📊 Progress bar update
   function updateProgress(percent, id = "fileProgress") {
     const bar = document.getElementById(id);
     bar.style.display = "block";
@@ -55,7 +72,7 @@ document.addEventListener("DOMContentLoaded", () => {
   function setupDataChannel(dc) {
     dataChannel = dc;
     dataChannel.binaryType = "arraybuffer";
-    dataChannel.onopen = () => console.log("DataChannel opened:", dataChannel.label);
+    dataChannel.onopen = () => console.log("DataChannel opened");
     dataChannel.onmessage = handleIncomingMessage;
   }
 
@@ -96,6 +113,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!msg || !dataChannel || dataChannel.readyState !== "open") return;
     dataChannel.send(JSON.stringify({ type: "text", data: msg }));
     appendBubble(msg, "you");
+    saveMessageToHistory("you", msg);
     msgInput.value = "";
   }
 
@@ -129,6 +147,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     readChunk();
     appendBubble(`📤 Sending file: ${file.name}`, "you");
+    saveMessageToHistory("you", `📤 Sending file: ${file.name}`);
   }
 
   function handleIncomingMessage(e) {
@@ -137,6 +156,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const obj = JSON.parse(e.data);
         if (obj.type === "text") {
           appendBubble(obj.data, "friend");
+          saveMessageToHistory("friend", obj.data);
         } else if (obj.type === "file") {
           incomingFile = obj;
           receivedBuffers = [];
@@ -146,7 +166,6 @@ document.addEventListener("DOMContentLoaded", () => {
         console.warn("Failed to parse message", e.data);
       }
     } else {
-      // Binary file chunk
       if (!incomingFile) return;
       receivedBuffers.push(e.data);
       receivedSize += e.data.byteLength;
@@ -164,6 +183,7 @@ document.addEventListener("DOMContentLoaded", () => {
         bubble.appendChild(link);
         chatBox.appendChild(bubble);
         scrollChat();
+        saveMessageToHistory("friend", `📎 File: ${incomingFile.name}`);
         incomingFile = null;
         receivedBuffers = [];
         receivedSize = 0;
@@ -193,4 +213,15 @@ document.addEventListener("DOMContentLoaded", () => {
     const m = candidate.candidate.match(/([0-9a-fA-F:.]+)\s*$/);
     return m ? m[1] : null;
   }
+
+  // 🧹 Clear history button
+  document.getElementById("clearHistoryBtn").onclick = () => {
+    if (confirm("คุณต้องการล้างประวัติแชตหรือไม่?")) {
+      localStorage.removeItem(CHAT_STORAGE_KEY);
+      chatBox.innerHTML = "";
+    }
+  };
+
+  // 🚀 Load history on startup
+  loadChatHistory();
 });
