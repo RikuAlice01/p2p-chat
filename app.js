@@ -4,7 +4,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const offerEl = document.getElementById("offer");
   const answerEl = document.getElementById("answer");
   const chatBox = document.getElementById("chatBox");
+  const savedOffersSelect = document.getElementById("savedOffersSelect");
   const CHAT_STORAGE_KEY = "p2pChatHistory";
+  const SAVED_OFFERS_KEY = "savedOffers";
 
   let peerConnection;
   let dataChannel;
@@ -14,7 +16,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let receivedBuffers = [];
   let receivedSize = 0;
 
-  // 🧠 Load saved messages
+  // Load saved chat history
   function loadChatHistory() {
     const history = JSON.parse(localStorage.getItem(CHAT_STORAGE_KEY) || "[]");
     history.forEach(entry => {
@@ -22,14 +24,14 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // 💾 Save message
+  // Save chat message
   function saveMessageToHistory(sender, message) {
     const history = JSON.parse(localStorage.getItem(CHAT_STORAGE_KEY) || "[]");
     history.push({ sender, message, time: new Date().toISOString() });
     localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(history));
   }
 
-  // 📊 Progress bar update
+  // Progress bar update
   function updateProgress(percent, id = "fileProgress") {
     const bar = document.getElementById(id);
     bar.style.display = "block";
@@ -40,6 +42,34 @@ document.addEventListener("DOMContentLoaded", () => {
         bar.value = 0;
       }, 1000);
     }
+  }
+
+  // Save Offer to localStorage
+  function saveOffer(offer) {
+    let saved = JSON.parse(localStorage.getItem(SAVED_OFFERS_KEY) || "[]");
+    // ไม่บันทึกซ้ำ
+    if (!saved.find(o => o.offer === offer)) {
+      saved.push({ id: Date.now(), offer });
+      localStorage.setItem(SAVED_OFFERS_KEY, JSON.stringify(saved));
+      populateSavedOffers();
+    }
+  }
+
+  // Load saved Offers
+  function loadOffers() {
+    return JSON.parse(localStorage.getItem(SAVED_OFFERS_KEY) || "[]");
+  }
+
+  // เติม select รายการ offer ที่เคยสร้าง
+  function populateSavedOffers() {
+    savedOffersSelect.innerHTML = '<option value="">-- เลือก Offer ที่เคยสร้าง --</option>';
+    const offers = loadOffers();
+    offers.forEach(({ id, offer }) => {
+      const opt = document.createElement("option");
+      opt.value = offer;
+      opt.textContent = `Offer เมื่อ ${new Date(id).toLocaleString()}`;
+      savedOffersSelect.appendChild(opt);
+    });
   }
 
   function initPeer() {
@@ -83,6 +113,7 @@ document.addEventListener("DOMContentLoaded", () => {
     await peerConnection.setLocalDescription(offer);
     offerEl.value = JSON.stringify(peerConnection.localDescription);
     showQRCode(offerEl.value);
+    saveOffer(offerEl.value);
   }
 
   async function createAnswer() {
@@ -95,7 +126,7 @@ document.addEventListener("DOMContentLoaded", () => {
       answerEl.value = JSON.stringify(peerConnection.localDescription);
       showQRCode(answerEl.value);
     } catch (err) {
-      alert("Invalid Offer");
+      showToast("Invalid Offer");
     }
   }
 
@@ -104,7 +135,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const ans = JSON.parse(answerEl.value);
       await peerConnection.setRemoteDescription(ans);
     } catch (err) {
-      alert("Invalid Answer");
+      showToast("Invalid Answer");
     }
   });
 
@@ -120,6 +151,14 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("sendBtn").onclick = sendMessage;
   document.getElementById("createOfferBtn").onclick = createOffer;
   document.getElementById("createAnswerBtn").onclick = createAnswer;
+
+  // ใช้ Offer ที่เคยบันทึก
+  document.getElementById("useOfferBtn").onclick = () => {
+    const val = savedOffersSelect.value;
+    if (!val) return showToast("กรุณาเลือก Offer");
+    offerEl.value = val;
+    showToast("โหลด Offer สำเร็จ");
+  };
 
   fileInput.addEventListener("change", () => {
     const file = fileInput.files[0];
@@ -214,7 +253,19 @@ document.addEventListener("DOMContentLoaded", () => {
     return m ? m[1] : null;
   }
 
-  // 🧹 Clear history button
+  // Toast function
+  function showToast(msg) {
+    const toast = document.getElementById("toast");
+    toast.textContent = msg;
+    toast.style.opacity = "1";
+    toast.style.pointerEvents = "auto";
+    setTimeout(() => {
+      toast.style.opacity = "0";
+      toast.style.pointerEvents = "none";
+    }, 2500);
+  }
+
+  // Clear chat history button
   document.getElementById("clearHistoryBtn").onclick = () => {
     if (confirm("คุณต้องการล้างประวัติแชตหรือไม่?")) {
       localStorage.removeItem(CHAT_STORAGE_KEY);
@@ -222,6 +273,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
-  // 🚀 Load history on startup
+  // Load chat history and saved offers on startup
   loadChatHistory();
+  populateSavedOffers();
 });

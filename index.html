@@ -1,45 +1,73 @@
-
 <!DOCTYPE html>
-<html lang="en">
+<html lang="th">
 <head>
-  <meta charset="UTF-8" />
-  <title>P2P IPv6 Chat</title>
-  <link rel="stylesheet" href="style.css" />
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>P2P Chat with Saved Offers</title>
+<link rel="stylesheet" href="style.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body>
-  <div class="chat-container">
-    <h2>IPv6 P2P Chat</h2>
 
+<div class="container">
+
+  <h1>P2P Chat (WebRTC) - จดจำเครื่องที่เคยติดต่อ</h1>
+
+  <section class="offer-answer-section">
+    <div class="box">
+      <h2>Create Offer</h2>
+      <textarea id="offer" rows="4" placeholder="Offer จะแสดงที่นี่..." readonly></textarea>
+      <div class="btn-row">
+        <button id="createOfferBtn">สร้าง Offer</button>
+        <button id="copyOfferBtn">📋 คัดลอก Offer</button>
+      </div>
+      <div id="qrcodeOffer" class="qrcode"></div>
+    </div>
+
+    <div class="box">
+      <h2>Use Saved Offers</h2>
+      <select id="savedOffersSelect"><option value="">-- เลือก Offer ที่เคยสร้าง --</option></select>
+      <button id="useOfferBtn" class="fullwidth-btn">ใช้ Offer นี้</button>
+    </div>
+
+    <div class="box">
+      <h2>Answer Offer</h2>
+      <textarea id="answer" rows="4" placeholder="วาง Answer ที่นี่..."></textarea>
+      <div class="btn-row">
+        <button id="createAnswerBtn">สร้าง Answer</button>
+        <button id="copyAnswerBtn">📋 คัดลอก Answer</button>
+        <button id="pasteAnswerBtn">📋 วาง Answer จากคลิปบอร์ด</button>
+      </div>
+      <div id="qrcodeAnswer" class="qrcode"></div>
+    </div>
+  </section>
+
+  <section class="chat-section">
     <div id="chatBox" class="chat-box"></div>
 
-    <div class="input-area">
-      <input type="text" id="messageInput" placeholder="Type a message..." />
-      <button id="sendBtn">Send</button>
+    <div class="input-row">
+      <input type="text" id="messageInput" placeholder="พิมพ์ข้อความ..." autocomplete="off" />
+      <button id="sendBtn">ส่ง</button>
+      <label for="fileInput" class="file-btn">📎 เลือกไฟล์</label>
+      <input type="file" id="fileInput" style="display:none" />
     </div>
 
-    <div class="file-share">
-      <input type="file" id="fileInput" />
-      <progress id="fileProgress" value="0" max="100" style="width: 100%; display: none;"></progress>
-      <progress id="recvProgress" value="0" max="100" style="width: 100%; display: none;"></progress>
-    </div>
+    <progress id="fileProgress" value="0" max="100" style="display:none"></progress>
+    <progress id="recvProgress" value="0" max="100" style="display:none; margin-top: 4px;"></progress>
 
-    <hr />
-    <h3>Connection</h3>
-    <div><strong>Your IP:</strong> <span id="yourIP">N/A</span></div>
-    <div><strong>Peer IP:</strong> <span id="peerIP">N/A</span></div>
+    <button id="clearHistoryBtn" class="clear-btn">ล้างประวัติแชต</button>
+  </section>
 
-    <textarea id="offer" placeholder="Paste offer here..."></textarea>
-    <button id="createOfferBtn">Create Offer</button>
+  <section class="ip-section">
+    <p><strong>IP ของคุณ:</strong> <span id="yourIP">-</span></p>
+    <p><strong>IP ของเพื่อน:</strong> <span id="peerIP">-</span></p>
+  </section>
 
-    <textarea id="answer" placeholder="Paste answer here..."></textarea>
-    <button id="createAnswerBtn">Answer Offer</button>
+</div>
 
-    <div id="qrcode"></div>
+<div id="toast"></div>
 
-    <button id="clearHistoryBtn">🗑 ล้างประวัติแชต</button>
-  </div>
+<script src="app.js"></script>
 
-  <script src="qrcode.min.js"></script>
-  <script src="app.js"></script>
 </body>
 </html>
