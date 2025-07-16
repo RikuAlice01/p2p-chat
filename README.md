@@ -1,87 +1,101 @@
-# P2P IPv6 Chat System (WebRTC)
+P2P Chat WebRTC
+A peer-to-peer chat application built with WebRTC, enabling secure text messaging and file transfer directly between browsers without a server. The application supports Thai language, real-time notifications, dark/light themes, and responsive design for both desktop and mobile devices.
+Features
 
-ระบบส่งข้อความแบบ Peer-to-Peer (P2P) ผ่านอินเทอร์เน็ตโดยตรง ใช้โปรโตคอล WebRTC รองรับ IPv6 ไม่มีตัวกลาง (no server relay) พร้อมฟีเจอร์:
+Peer-to-Peer Communication: Uses WebRTC for direct, serverless text and file transfer.
+End-to-End Encryption: Messages are encrypted using AES (CryptoJS) for secure communication.
+File Transfer: Supports drag-and-drop file uploads with progress indicators for sending and receiving files.
+Real-Time Notifications: Browser notifications for new messages when the tab is not in focus.
+Typing Indicator: Displays when the other party is typing.
+Chat History: Encrypted chat history stored locally in the browser.
+Responsive Design: Optimized for both desktop and mobile devices with adaptive layouts.
+Theme Support: Toggle between light and dark themes with local storage persistence.
+QR Code Support: Generates QR codes for easy sharing of WebRTC offer/answer data.
+Auto-Reconnect: Attempts to reconnect up to three times if the connection is lost.
+Search Functionality: Allows searching through chat messages.
+Export Chat: Export chat history as a plain text file.
 
-- ส่งข้อความแชทแบบเรียลไทม์
-- ส่งไฟล์แบบ chunk พร้อม progress bar ฝั่งส่งและรับ
-- แสดง IP ของแต่ละฝ่าย (local + peer)
-- แลกเปลี่ยน SDP offer/answer ผ่าน QR code และ textarea
-- เก็บประวัติแชตในเครื่อง (localStorage)
-- ปุ่มคัดลอก Offer/Answer, วาง Answer จาก clipboard
-- แจ้งเตือนแบบ toast message
-- UI แบบแชท ใช้งานง่าย
+Technologies Used
 
----
+HTML5, CSS3, JavaScript: Core web technologies for the frontend.
+WebRTC: For peer-to-peer communication and file transfer.
+CryptoJS: For AES encryption of messages and chat history.
+QRCode.js: For generating QR codes for WebRTC signaling.
+Google Fonts: Inter and Sarabun fonts for a modern, Thai-compatible UI.
 
-## วิธีใช้งาน
+Getting Started
+Prerequisites
 
-### 1. เปิดใช้งานเซิร์ฟเวอร์ HTTP
+A modern web browser (e.g., Chrome, Firefox, Edge) with WebRTC support.
+No server or additional software is required, as the application runs entirely in the browser.
 
-เปิด Terminal หรือ Command Prompt ในโฟลเดอร์โปรเจกต์ แล้วรัน:
+Setup
 
-```bash
-python3 -m http.server
-````
+Clone or Download the Repository:
+git clone <repository-url>
 
-(หรือใช้ HTTP server ตัวอื่นตามสะดวก)
+Alternatively, download the index.html file.
 
-### 2. เปิดเว็บเบราว์เซอร์
+Serve the Application:
 
-เข้า URL:
+Open the index.html file in a web browser. For local testing, use a simple HTTP server to avoid CORS issues:python3 -m http.server 8000
 
-```
-http://localhost:8000
-```
 
-(หรือพอร์ตที่ HTTP server ใช้งานอยู่)
+Then, navigate to http://localhost:8000 in your browser.
 
-### 3. สร้างการเชื่อมต่อ
 
-* ฝั่งหนึ่ง กดปุ่ม **Create Offer** ระบบจะสร้างข้อความ offer และแสดงในช่องด้านบน พร้อมแสดง QR code ให้สแกนหรือคัดลอกข้อความ
+Establish a Connection:
 
-* ฝั่งอีกฝ่าย นำข้อความ offer ที่ได้มาใส่ในช่อง **Paste offer here...** แล้วกดปุ่ม **Answer Offer** ระบบจะสร้าง answer พร้อมแสดงในช่อง answer และ QR code
+Create an Offer: Click "สร้าง Offer" to generate a WebRTC offer. Copy the offer text or scan the QR code.
+Receive an Offer: Paste the received offer into the "วาง Offer จากอีกฝั่ง" field and click "สร้าง Answer".
+Complete Connection: Share the generated answer with the other party, who will paste it into the "วาง Answer" field.
+Once connected, the settings sections will hide, and you can start chatting or sending files.
 
-* ฝั่งแรก นำข้อความ answer ที่ได้มาใส่ในช่อง **Paste answer here...** (หรือใช้ปุ่ม Paste Answer) เพื่อเสร็จสิ้นการเชื่อมต่อ
 
-### 4. เริ่มแชทและส่งไฟล์
 
-* พิมพ์ข้อความในช่องข้อความ แล้วกด **Send**
-* เลือกไฟล์ที่ต้องการส่ง ฝั่งผู้รับจะได้รับพร้อมแสดงปุ่มดาวน์โหลดไฟล์ และ progress bar
+Usage
 
-### 5. ใช้ปุ่มคัดลอกและวาง
+Send Messages: Type in the message input field and press "Enter" or click the send button (📨).
+Send Files: Drag and drop files into the file drop zone or click to select files. Press the send button to transfer.
+Search Messages: Use the search bar to filter chat messages.
+Toggle Theme: Click the theme toggle button (🌙/☀️) to switch between light and dark modes.
+Export Chat: Click "ส่งออก" to download the chat history as a text file.
+Clear Chat: Click "ล้างแชต" to clear the chat history (requires confirmation).
+Reconnect: Click the reconnect button (🔄) to reset the connection if needed.
 
-* ปุ่ม **Copy Offer** และ **Copy Answer** ช่วยให้คัดลอกข้อความ SDP ได้ง่าย
-* ปุ่ม **Paste Answer** ช่วยวางข้อความ answer จาก clipboard อัตโนมัติ
-* แจ้งเตือนสถานะการคัดลอก/วางด้วย toast message
+Security Notes
 
-### 6. ประวัติแชต
+Encryption: Messages and chat history are encrypted using a hardcoded AES key (my-secret-key-2023). For production use, consider implementing a dynamic key exchange mechanism.
+Local Storage: Chat history is stored in the browser's localStorage and is encrypted, but it can be cleared manually.
+No Server: All communication is peer-to-peer, ensuring no data is stored on a server.
 
-* ระบบจะเก็บข้อความที่ส่งและรับไว้ใน localStorage
-* เมื่อรีเฟรชหน้าเว็บ ประวัติจะถูกโหลดกลับมาแสดง
-* กดปุ่ม **ล้างประวัติแชต** เพื่อลบประวัติทั้งหมดในเครื่อง
+Limitations
 
----
+File Size: Large files may take longer to transfer due to WebRTC DataChannel limitations.
+Browser Compatibility: Requires WebRTC support, available in modern browsers.
+Connection Stability: Depends on both peers maintaining an active connection. Auto-reconnect attempts up to three times.
 
-## ข้อควรระวัง
+Troubleshooting
 
-* WebRTC จำเป็นต้องเชื่อมต่อแบบ Peer-to-Peer ผ่าน IPv6 หรือ IPv4 ที่สามารถติดต่อกันได้
-* ไม่ใช่ระบบแชทแบบเซิร์ฟเวอร์กลาง จึงต้องแลกเปลี่ยน Offer/Answer ด้วยตนเอง (ผ่าน QR code, copy/paste)
-* ไม่เข้ารหัสข้อมูล (หากต้องการเข้ารหัสให้เพิ่มเอง)
-* localStorage เก็บข้อมูลไว้ฝั่ง Client เท่านั้น
+Connection Issues: Ensure both parties exchange valid offer/answer data. Check the browser console for errors.
+File Transfer Errors: Verify the connection is active (เชื่อมต่อแล้ว) before sending files.
+Notifications Not Working: Ensure browser notification permissions are granted.
+UI Issues: Test on different devices to confirm responsive design. Report any layout issues with browser details.
 
----
+Contributing
+Contributions are welcome! To contribute:
 
-## ไฟล์ในโปรเจกต์
+Fork the repository.
+Create a feature branch (git checkout -b feature/YourFeature).
+Commit your changes (git commit -m 'Add YourFeature').
+Push to the branch (git push origin feature/YourFeature).
+Open a pull request.
 
-* `index.html` — หน้าเว็บหลัก
-* `style.css` — สไตล์และธีมแชท
-* `app.js` — โค้ดหลัก WebRTC และ UI logic
-* `qrcode.min.js` — ไลบรารีสร้าง QR Code
+Please include detailed descriptions of your changes and test thoroughly.
+License
+This project is licensed under the MIT License. See the LICENSE file for details.
+Acknowledgments
 
----
-
-## License
-
-MIT License
-
----
+Inspired by WebRTC tutorials and open-source chat applications.
+Thanks to the creators of QRCode.js and CryptoJS for their libraries.
+Fonts provided by Google Fonts (Inter and Sarabun).
