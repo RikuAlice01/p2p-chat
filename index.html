@@ -3,90 +3,704 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>P2P Chat WebRTC (แยกช่อง Offer/Answer)</title>
+  <title>P2P Chat WebRTC</title>
   <style>
-    body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 10px; background:#f0f2f5;}
-    textarea { width: 100%; height: 80px; margin-bottom: 8px; resize: vertical; font-family: monospace; }
-    button { margin: 5px 3px; padding: 6px 12px; }
-    .readonly { background:#eee; }
-    #chatBox { height: 200px; overflow-y: auto; background: white; padding: 10px; border: 1px solid #ccc; margin-bottom: 8px; }
-    .message { padding:5px 8px; border-radius: 12px; margin-bottom: 6px; max-width: 80%; word-wrap: break-word; }
-    .you { background: #dcf8c6; align-self: flex-end; margin-left: auto; }
-    .friend { background: #fff; border: 1px solid #ccc; align-self: flex-start; margin-right: auto; }
-    #chatContainer { display: flex; flex-direction: column; }
-    #toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: #fff; padding: 10px 20px; border-radius: 20px; opacity: 0; transition: opacity 0.5s ease; pointer-events: none; }
-    #qrcodeOffer, #qrcodeAnswer { margin: 10px 0; }
-    #fileProgress, #recvProgress { width: 100%; height: 16px; margin: 4px 0; display: none; }
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sarabun:wght@400;500;600;700&display=swap');
+
+    :root {
+      --bg-primary: #F7F7F7;
+      --bg-secondary: #FFFFFF;
+      --text-primary: #333333;
+      --text-secondary: #666666;
+      --border-color: #E0E0E0;
+      --accent-color: #2ECC71;
+      --shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+      --message-you: #E6F7EC;
+      --message-you-text: #333333;
+      --message-friend: #F0F2F5;
+      --message-friend-text: #333333;
+    }
+
+    [data-theme="dark"] {
+      --bg-primary: #1A1A1A;
+      --bg-secondary: #2D2D2D;
+      --text-primary: #FFFFFF;
+      --text-secondary: #CCCCCC;
+      --border-color: #555555;
+      --message-you: #2A6B4E;
+      --message-you-text: #FFFFFF;
+      --message-friend: #404040;
+      --message-friend-text: #FFFFFF;
+      --shadow: 0 2px 8px rgba(255, 255, 255, 0.05);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', 'Sarabun', sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      transition: all 0.3s ease;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      margin: 0;
+    }
+
+    .container {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 16px;
+      flex: 1;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px;
+      background: var(--bg-secondary);
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      margin-bottom: 24px;
+    }
+
+    .header h1 {
+      font-size: 20px;
+      font-weight: 600;
+    }
+
+    .controls {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: 500;
+      background: var(--border-color);
+      color: var(--text-primary);
+      position: relative;
+    }
+
+    .status-indicator .badge {
+      background: var(--accent-color);
+      color: white;
+      border-radius: 10px;
+      padding: 2px 8px;
+      font-size: 12px;
+      position: absolute;
+      top: -8px;
+      right: -8px;
+    }
+
+    .status-connecting { background: #FFC107; color: #FFFFFF; }
+    .status-connected { background: var(--accent-color); color: #FFFFFF; }
+    .status-disconnected { background: #DC3545; color: #FFFFFF; }
+    .status-idle { background: var(--border-color); color: var(--text-primary); }
+
+    .section {
+      background: var(--bg-secondary);
+      padding: 24px;
+      margin-bottom: 24px;
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+    }
+
+    .section.connection-hidden {
+      display: none;
+    }
+
+    .section h2 {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      color: var(--text-primary);
+      border-bottom: 2px solid var(--accent-color);
+      padding-bottom: 8px;
+    }
+
+    .send-input {
+      height: 17px;
+      min-height: 48px;
+      padding: 12px 16px;
+    }
+
+    textarea, input[type="text"] {
+      width: 80%;
+      min-height: 48px;
+      padding: 12px;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      font-size: 14px;
+      resize: vertical;
+      max-height: 120px;
+      font-family: 'Inter', 'Sarabun', sans-serif;
+    }
+
+    textarea:focus, input:focus {
+      outline: none;
+      border-color: var(--accent-color);
+    }
+
+    .input-group {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      margin-bottom: 16px;
+    }
+
+    .input-row {
+      display: flex;
+      flex-direction: row;
+      align-items: flex-end;
+      gap: 8px;
+    }
+
+    button {
+      min-height: 48px;
+      padding: 12px 20px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      background: var(--accent-color);
+      color: #FFFFFF;
+    }
+
+    .btn {
+      width: 100%;
+      max-width: 150px;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-secondary {
+      background: var(--border-color);
+      color: var(--text-primary);
+    }
+
+    .btn-icon {
+      background: none;
+      border: none;
+      font-size: 18px;
+      padding: 12px;
+      min-height: 48px;
+      display: flex;
+      align-items: center;
+    }
+
+    .btn-icon:hover {
+      background: var(--border-color);
+      border-radius: 50%;
+    }
+
+    .readonly {
+      background: var(--bg-primary);
+      cursor: not-allowed;
+    }
+
+    .search-container {
+      margin-bottom: 16px;
+    }
+
+    .search-container input {
+      min-height: 48px;
+      padding: 12px 16px;
+      border-radius: 20px;
+      border: 1px solid var(--border-color);
+      width: 100%;
+    }
+
+    #chatBox {
+      flex: 1;
+      height: calc(100vh - 300px);
+      overflow-y: auto;
+      background: var(--bg-primary);
+      padding: 24px;
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      margin-bottom: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .message {
+      padding: 12px 16px;
+      border-radius: 12px;
+      margin-bottom: 8px;
+      max-width: 70%;
+      word-wrap: break-word;
+      position: relative;
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .message.you {
+      background: var(--message-you);
+      color: var(--message-you-text);
+      align-self: flex-end;
+      border-bottom-right-radius: 4px;
+    }
+
+    .message.friend {
+      background: var(--message-friend);
+      color: var(--message-friend-text);
+      border: 1px solid var(--border-color);
+      align-self: flex-start;
+      border-bottom-left-radius: 4px;
+    }
+
+    .message img {
+      max-width: 200px;
+      border-radius: 8px;
+      margin-top: 8px;
+    }
+
+    .message-time {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 4px;
+      opacity: 0.7;
+    }
+
+    .date-divider {
+      text-align: center;
+      color: var(--text-secondary);
+      font-size: 12px;
+      margin: 16px 0;
+    }
+
+    .message-input-container {
+      display: flex;
+      gap: 12px;
+      align-items: flex-end;
+    }
+
+    #messageInput {
+      flex: 1;
+      min-height: 48px;
+      padding: 12px 16px;
+      border-radius: 20px;
+    }
+
+    .typing-indicator {
+      font-style: italic;
+      color: var(--text-secondary);
+      padding: 8px 16px;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .typing-indicator.show {
+      opacity: 1;
+    }
+
+    .file-drop-zone {
+      border: 2px dashed var(--border-color);
+      border-radius: 12px;
+      padding: 16px;
+      text-align: center;
+      color: var(--text-secondary);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-size: 14px;
+      transition: all 0.2s ease;
+    }
+
+    .file-drop-zone::before {
+      content: '📂';
+      font-size: 20px;
+    }
+
+    .file-drop-zone.drag-over {
+      border-color: var(--accent-color);
+      background: rgba(46, 204, 113, 0.1);
+    }
+
+    .progress-container {
+      margin: 12px 0;
+      display: none;
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 6px;
+      background: var(--bg-primary);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: var(--accent-color);
+      transition: width 0.3s ease;
+    }
+
+    .progress-text {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 4px;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      padding: 12px 20px;
+      border-radius: 8px;
+      color: #FFFFFF;
+      font-size: 14px;
+      font-weight: 500;
+      box-shadow: var(--shadow);
+      transform: translateX(100%);
+      transition: transform 0.3s ease;
+      z-index: 1000;
+      max-width: 320px;
+    }
+
+    .toast.show {
+      transform: translateX(0);
+    }
+
+    .toast.info { background: var(--accent-color); }
+    .toast.success { background: var(--accent-color); }
+    .toast.warning { background: #FFC107; }
+    .toast.error { background: #DC3545; }
+
+    .qr-container {
+      text-align: center;
+      margin: 16px 0;
+    }
+
+    .multiple-files {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .file-item {
+      background: var(--bg-primary);
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    @media (max-width: 768px) {
+      .container {
+        padding: 16px;
+      }
+      .header { flex-direction: column; gap: 12px; padding: 16px; }
+      .input-group { flex-direction: column; gap: 8px; }
+      .message { max-width: 85%; }
+      .section { padding: 16px; }
+      .toast { max-width: 80%; right: 16px; bottom: 16px; }
+      .btn, .btn-secondary, .btn-icon {
+        padding: 8px 12px;
+        font-size: 13px;
+      }
+      #messageInput, .search-container input {
+        min-height: 36px;
+        padding: 8px 12px;
+      }
+      textarea, input[type="text"] {
+        width: 100%;
+      }
+    }
   </style>
 </head>
 <body>
+  <div class="container">
+    <div class="header">
+      <h1>💬 P2P Chat</h1>
+      <div class="controls">
+        <div id="statusIndicator" class="status-indicator status-idle">
+          <span id="statusText">ไม่ได้เชื่อมต่อ</span>
+        </div>
+        <button id="reconnectBtn" class="btn-icon" aria-label="รีเซ็ตทุกอย่าง">🔄</button>
+        <button id="themeToggle" class="btn-icon" aria-label="สลับธีม">🌙</button>
+      </div>
+    </div>
 
-  <h2>ฝั่ง A (ผู้สร้าง Offer)</h2>
-  <button id="createOfferBtn">➕ Create Offer</button>
-  <button id="copyOfferBtn">📋 Copy Offer</button>
-  <textarea id="offer" readonly class="readonly" placeholder="Offer จะแสดงที่นี่"></textarea>
-  <div id="qrcodeOffer"></div>
+    <div class="section" id="createConnectionSection">
+      <h2>🎁 สร้างการเชื่อมต่อ</h2>
+      <div class="input-group">
+        <button id="createOfferBtn" class="btn" aria-label="สร้าง Offer">➕ สร้าง Offer</button>
+        <button id="copyOfferBtn" class="btn btn-secondary" aria-label="คัดลอก Offer">📋 คัดลอก</button>
+        <button id="clearOfferBtn" class="btn-icon" aria-label="ล้าง Offer">🗑️</button>
+      </div>
+      <textarea id="offer" readonly class="readonly" placeholder="Offer จะแสดงที่นี่" aria-label="Offer"></textarea>
+      <div id="qrcodeOffer" class="qr-container"></div>
+    </div>
 
-  <hr />
+    <div class="section" id="receiveConnectionSection">
+      <h2>🔁 รับการเชื่อมต่อ</h2>
+      <div class="input-group">
+        <textarea id="offerInput" placeholder="วาง Offer จากอีกฝั่ง" aria-label="วาง Offer"></textarea>
+        <div class="input-row">
+          <button id="createAnswerBtn" class="btn" aria-label="สร้าง Answer">🔁 สร้าง Answer</button>
+          <button id="clearOfferInputBtn" class="btn-icon" aria-label="ล้าง Offer Input">🗑️</button>
+        </div>
+      </div>
+    </div>
 
-  <h2>ฝั่ง B (ผู้รับ Offer)</h2>
-  <textarea id="offerInput" placeholder="วางข้อความ Offer ที่นี่ (จากฝั่ง A)"></textarea>
-  <button id="createAnswerBtn">🔁 Create Answer</button>
+    <div class="section" id="answerSection">
+      <h2>✅ Answer</h2>
+      <div class="input-group">
+        <textarea id="answer" placeholder="วาง Answer เพื่อเชื่อมต่อ" aria-label="วาง Answer"></textarea>
+        <div class="input-row">
+          <button id="pasteAnswerBtn" class="btn btn-secondary" aria-label="วาง Answer">📋 วาง</button>
+          <button id="copyAnswerBtn" class="btn btn-secondary" aria-label="คัดลอก Answer">📋 คัดลอก</button>
+          <button id="clearAnswerBtn" class="btn-icon" aria-label="ล้าง Answer">🗑️</button>
+        </div>
+      </div>
+      <div id="qrcodeAnswer" class="qr-container"></div>
+    </div>
 
-  <hr />
+    <div class="section">
+      <h2>💬 แชต</h2>
+      <div class="search-container">
+        <input type="text" id="searchChat" placeholder="ค้นหาข้อความ..." aria-label="ค้นหาข้อความ">
+      </div>
+      <div id="chatBox"></div>
+      <div class="typing-indicator" id="typingIndicator">🔄 อีกฝ่ายกำลังพิมพ์...</div>
+      
+      <div class="file-drop-zone" id="fileDropZone">
+        ลากไฟล์มาที่นี่หรือคลิกเพื่อเลือก
+        <input type="file" id="fileInput" multiple style="display: none;" aria-label="เลือกไฟล์">
+      </div>
+      
+      <div class="multiple-files" id="selectedFiles"></div>
+      
+      <div class="progress-container" id="fileProgressContainer">
+        <div class="progress-bar">
+          <div class="progress-fill" id="fileProgress"></div>
+        </div>
+        <div class="progress-text" id="fileProgressText">0%</div>
+      </div>
+      
+      <div class="progress-container" id="recvProgressContainer">
+        <div class="progress-bar">
+          <div class="progress-fill" id="recvProgress"></div>
+        </div>
+        <div class="progress-text" id="recvProgressText">รับไฟล์... 0%</div>
+      </div>
 
-  <h2>Answer (ทั้งสองฝั่งใช้งานได้)</h2>
-  <textarea id="answer" placeholder="วาง Answer ที่นี่ (เพื่อเชื่อมต่อ)"></textarea>
-  <button id="pasteAnswerBtn">📋 Paste Answer</button>
-  <button id="copyAnswerBtn">📋 Copy Answer</button>
-  <div id="qrcodeAnswer"></div>
+      <div class="message-input-container">
+        <textarea id="messageInput" class="send-input" placeholder="พิมพ์ข้อความ..." aria-label="พิมพ์ข้อความ"></textarea>
+        <button id="sendBtn" aria-label="ส่งข้อความหรือไฟล์">📨 ส่ง</button>
+      </div>
 
-  <hr />
+      <div style="display: flex; gap: 12px; margin-top: 12px;">
+        <button id="toggleSettingsBtn" class="btn-secondary connection-hidden" aria-label="สลับการตั้งค่า">⚙️ แสดงการตั้งค่า</button>
+        <button id="clearHistoryBtn" class="btn-secondary" aria-label="ล้างประวัติแชต">🧹 ล้างแชต</button>
+        <button id="exportChatBtn" class="btn-secondary" aria-label="ส่งออกแชต">📤 ส่งออก</button>
+      </div>
+    </div>
+  </div>
 
-  <h2>แชต (หลังเชื่อมต่อ)</h2>
-  <div id="chatBox"></div>
-  <input type="text" id="messageInput" placeholder="พิมพ์ข้อความ..." />
-  <button id="sendBtn">📨 ส่งข้อความ</button>
-  <input type="file" id="fileInput" />
-  <progress id="fileProgress" max="100" value="0"></progress>
-  <progress id="recvProgress" max="100" value="0"></progress>
-
-  <button id="clearHistoryBtn">🧹 ล้างประวัติแชต</button>
-
-  <div id="toast"></div>
-
-  <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.3/qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
   <script>
     // ==== ตัวช่วย ====
     const $ = id => document.getElementById(id);
-    const showToast = (msg) => {
-      const toast = $("toast");
+    
+    // ==== ตัวแปรสำหรับเข้ารหัส ====
+    const ENCRYPTION_KEY = 'my-secret-key-2023';
+    
+    // ==== ระบบ Toast ====
+    const showToast = (msg, type = 'info') => {
+      const toastContainer = document.getElementById('toastContainer') || createToastContainer();
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
       toast.textContent = msg;
-      toast.style.opacity = "1";
-      setTimeout(() => toast.style.opacity = "0", 3000);
+      toastContainer.appendChild(toast);
+      
+      setTimeout(() => toast.classList.add('show'), 100);
+      setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+      }, 3000);
     };
+
+    const createToastContainer = () => {
+      const container = document.createElement('div');
+      container.id = 'toastContainer';
+      container.style.cssText = 'position: fixed; bottom: 24px; right: 24px; z-index: 1000;';
+      document.body.appendChild(container);
+      return container;
+    };
+
+    // ==== ระบบธีม ====
+    const toggleTheme = () => {
+      const currentTheme = document.documentElement.getAttribute('data-theme');
+      const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', newTheme);
+      localStorage.setItem('theme', newTheme);
+      $('themeToggle').textContent = newTheme === 'dark' ? '☀️' : '🌙';
+    };
+
+    const savedTheme = localStorage.getItem('theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    $('themeToggle').textContent = savedTheme === 'dark' ? '☀️' : '🌙';
+    $('themeToggle').onclick = toggleTheme;
 
     // ==== ตัวแปร WebRTC ====
     let pc, dc;
     let receiveBuffer = [], receivedSize = 0, fileMeta = null;
+    let typingTimer = null;
+    let selectedFiles = [];
+    let reconnectAttempts = 0;
+    const maxAttempts = 3;
+    
     const config = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
 
+    // ==== ระบบสถานะ ====
+    const updateStatus = (status, text) => {
+      const indicator = $('statusIndicator');
+      const statusText = $('statusText');
+      indicator.className = `status-indicator status-${status}`;
+      statusText.textContent = text;
+      indicator.querySelector('.badge')?.remove();
+    };
+
+    // ==== การแจ้งเตือนข้อความใหม่ ====
+    const notifyNewMessage = (msg) => {
+      if ('Notification' in window && document.hidden && Notification.permission === "granted") {
+        new Notification("ข้อความใหม่", {
+          body: msg.substring(0, 50) + "...",
+          icon: "/icon.png"
+        });
+      }
+      const badge = document.createElement("span");
+      badge.className = "badge";
+      badge.textContent = "1";
+      $('statusIndicator').appendChild(badge);
+    };
+
+    // ==== เข้ารหัส/ถอดรหัส ====
+    const encrypt = (text) => {
+      try {
+        return CryptoJS.AES.encrypt(text, ENCRYPTION_KEY).toString();
+      } catch (e) {
+        console.error('Encryption error:', e);
+        showToast('❌ ข้อผิดพลาดในการเข้ารหัส', 'error');
+        return null;
+      }
+    };
+
+    const decrypt = (ciphertext) => {
+      try {
+        const bytes = CryptoJS.AES.decrypt(ciphertext, ENCRYPTION_KEY);
+        const decrypted = bytes.toString(CryptoJS.enc.Utf8);
+        if (!decrypted) throw new Error('Empty decryption result');
+        return decrypted;
+      } catch (e) {
+        console.error('Decryption error:', e);
+        showToast('❌ ข้อมูลไม่ถูกต้อง', 'error');
+        return null;
+      }
+    };
+
+    // ==== WebRTC Functions ====
     const createPeer = () => {
+      if (pc) {
+        pc.close();
+        pc = null;
+        dc = null;
+      }
+      
       pc = new RTCPeerConnection(config);
+      
       pc.onicecandidate = e => {
         if (!e.candidate) console.log("ICE gathering complete");
       };
+      
       pc.ondatachannel = e => setupDataChannel(e.channel);
+      
+      pc.oniceconnectionstatechange = () => {
+        const state = pc.iceConnectionState;
+        switch (state) {
+          case 'connecting':
+            updateStatus('connecting', 'กำลังเชื่อมต่อ...');
+            break;
+          case 'connected':
+            updateStatus('connected', 'เชื่อมต่อแล้ว');
+            showToast('🟢 เชื่อมต่อสำเร็จ', 'success');
+            reconnectAttempts = 0;
+            // Hide settings sections when connected
+            settingsVisible = false;
+            ['createConnectionSection', 'receiveConnectionSection', 'answerSection'].forEach(id => 
+              $(id).classList.add('connection-hidden')
+            );
+            $('toggleSettingsBtn').classList.remove('connection-hidden');
+            $('toggleSettingsBtn').textContent = '⚙️ แสดงการตั้งค่า';
+            break;
+          case 'disconnected':
+          case 'failed':
+            updateStatus('disconnected', 'ขาดการเชื่อมต่อ');
+            showToast('🔴 ขาดการเชื่อมต่อ', 'warning');
+            tryReconnect();
+            break;
+        }
+      };
     };
 
     const setupDataChannel = (channel) => {
       dc = channel;
       dc.onopen = () => {
-        showToast("🟢 Connected");
+        updateStatus('connected', 'เชื่อมต่อแล้ว');
+        showToast('🟢 พร้อมใช้งาน', 'success');
+        // Hide settings sections when data channel is open
+        settingsVisible = false;
+        ['createConnectionSection', 'receiveConnectionSection', 'answerSection'].forEach(id => 
+          $(id).classList.add('connection-hidden')
+        );
+        $('toggleSettingsBtn').classList.remove('connection-hidden');
+        $('toggleSettingsBtn').textContent = '⚙️ แสดงการตั้งค่า';
       };
       dc.onmessage = handleMessage;
       dc.onclose = () => {
-        showToast("🔴 Disconnected");
+        updateStatus('disconnected', 'ขาดการเชื่อมต่อ');
+        showToast('🔴 การเชื่อมต่อปิดแล้ว', 'warning');
       };
     };
 
@@ -97,10 +711,28 @@
       });
     });
 
-    // ==== สร้าง Offer ฝั่ง A ====
-    $("createOfferBtn").onclick = async () => {
+    // ==== Auto-Reconnect ====
+    const tryReconnect = () => {
+      if (reconnectAttempts < maxAttempts) {
+        reconnectAttempts++;
+        $('reconnectBtn').click();
+        showToast(`พยายามเชื่อมต่อใหม่ (${reconnectAttempts}/${maxAttempts})`, 'warning');
+      } else {
+        showToast('❌ ถึงขีดจำกัดการเชื่อมต่อใหม่', 'error');
+      }
+    };
+
+    setInterval(() => {
+      if (pc && ['disconnected', 'failed'].includes(pc.iceConnectionState) && reconnectAttempts < maxAttempts) {
+        tryReconnect();
+      }
+    }, 5000);
+
+    // ==== สร้าง Offer ====
+    $('createOfferBtn').onclick = async () => {
       try {
-        if (pc) { pc.close(); pc = null; dc = null; }
+        updateStatus('connecting', 'กำลังสร้าง Offer...');
+        
         createPeer();
         setupDataChannel(pc.createDataChannel("chat"));
 
@@ -108,193 +740,511 @@
         await pc.setLocalDescription(offer);
         await waitICE();
 
-        $("offer").value = JSON.stringify(pc.localDescription);
+        $('offer').value = JSON.stringify(pc.localDescription);
 
-        $("qrcodeOffer").innerHTML = "";
-        new QRCode("qrcodeOffer", { text: $("offer").value, width: 200, height: 200 });
+        $('qrcodeOffer').innerHTML = "";
+        QRCode.toCanvas($('qrcodeOffer'), $('offer').value, { width: 180, height: 180 });
 
-        showToast("🎁 สร้าง Offer เรียบร้อย");
+        updateStatus('idle', 'รอการตอบรับ');
+        showToast('🎁 สร้าง Offer เรียบร้อย', 'success');
       } catch (e) {
-        console.error(e);
-        showToast("❌ สร้าง Offer ไม่สำเร็จ");
+        console.error('Error in createOfferBtn:', e);
+        updateStatus('disconnected', 'สร้าง Offer ล้มเหลว');
+        showToast('❌ สร้าง Offer ไม่สำเร็จ', 'error');
       }
     };
 
-    // ==== สร้าง Answer ฝั่ง B ====
-    $("createAnswerBtn").onclick = async () => {
-      const offerText = $("offerInput").value.trim();
+    // ==== สร้าง Answer ====
+    $('createAnswerBtn').onclick = async () => {
+      const offerText = $('offerInput').value.trim();
       if (!offerText) {
-        showToast("❌ กรุณาวาง Offer ก่อนสร้าง Answer");
+        showToast('❌ กรุณาวาง Offer ก่อน', 'error');
         return;
       }
+      
       try {
-        if (pc) { pc.close(); pc = null; dc = null; }
-        createPeer();
-
+        updateStatus('connecting', 'กำลังสร้าง Answer...');
+        
         const offer = JSON.parse(offerText);
+        
+        createPeer();
         await pc.setRemoteDescription(offer);
 
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
-
         await waitICE();
 
-        $("answer").value = JSON.stringify(pc.localDescription);
+        $('answer').value = JSON.stringify(pc.localDescription);
 
-        $("qrcodeAnswer").innerHTML = "";
-        new QRCode("qrcodeAnswer", { text: $("answer").value, width: 200, height: 200 });
+        $('qrcodeAnswer').innerHTML = "";
+        QRCode.toCanvas($('qrcodeAnswer'), $('answer').value, { width: 180, height: 180 });
 
-        showToast("✅ สร้าง Answer เรียบร้อย");
+        updateStatus('idle', 'รอการเชื่อมต่อ');
+        showToast('✅ สร้าง Answer เรียบร้อย', 'success');
+        
       } catch (e) {
-        console.error(e);
-        showToast("❌ ข้อมูล Offer ไม่ถูกต้อง");
+        console.error('Error in createAnswerBtn:', e);
+        updateStatus('disconnected', 'สร้าง Answer ล้มเหลว');
+        showToast('❌ ข้อมูล Offer ไม่ถูกต้อง', 'error');
+        console.log('settingsVisible:', settingsVisible);
+        const sections = ['createConnectionSection', 'receiveConnectionSection', 'answerSection'];
+        sections.forEach(id => $(id).classList.toggle('connection-hidden', false));
       }
     };
 
-    // ==== วาง Answer ฝั่ง A เพื่อเชื่อมต่อ ====
-    $("answer").addEventListener("input", async () => {
-      const answerText = $("answer").value.trim();
+    // ==== วาง Answer ====
+    $('pasteAnswerBtn').onclick = async () => {
+      try {
+        const text = await navigator.clipboard.readText();
+        $('answer').value = text;
+        showToast('📋 วาง Answer เรียบร้อย', 'success');
+        const answer = JSON.parse(text);
+        if (pc && pc.signalingState === 'have-local-offer') {
+          await pc.setRemoteDescription(answer);
+          showToast('🔗 เชื่อมต่อเรียบร้อย', 'success');
+        }
+      } catch (e) {
+        console.error('Error in pasteAnswer:', e);
+        showToast('❌ ไม่สามารถอ่านคลิปบอร์ดได้', 'error');
+      }
+    };
+
+    $('answer').addEventListener('input', async () => {
+      const answerText = $('answer').value.trim();
       if (!answerText) return;
       try {
         const answer = JSON.parse(answerText);
-        if (pc && pc.signalingState !== "closed") {
+        if (pc && pc.signalingState === 'have-local-offer') {
           await pc.setRemoteDescription(answer);
-          showToast("🔗 เชื่อมต่อกับ Answer เรียบร้อย");
+          showToast('🔗 เชื่อมต่อเรียบร้อย', 'success');
         }
       } catch (e) {
-        console.error(e);
+        console.error('Error in pasteAnswer:', e);
+        showToast('❌ Answer ไม่ถูกต้อง', 'error');
       }
     });
 
-    // ==== ส่งข้อความ ====
-    $("sendBtn").onclick = () => {
-      const text = $("messageInput").value.trim();
+    // ==== สลับการตั้งค่า ====
+    let settingsVisible = false;
+    $('toggleSettingsBtn').onclick = () => {
+      settingsVisible = !settingsVisible;
+      const sections = ['createConnectionSection', 'receiveConnectionSection', 'answerSection'];
+      sections.forEach(id => $(id).classList.toggle('connection-hidden', !settingsVisible));
+      $('toggleSettingsBtn').classList.toggle('connection-hidden', settingsVisible);
+      $('toggleSettingsBtn').textContent = settingsVisible ? '⚙️ ซ่อนการตั้งค่า' : '⚙️ แสดงการตั้งค่า';
+      showToast(settingsVisible ? '⚙️ แสดงการตั้งค่า' : '⚙️ ซ่อนการตั้งค่า', 'info');
+    };
+
+    // ==== รีเซ็ตทุกอย่าง ====
+    $('reconnectBtn').onclick = () => {
+      if (pc) {
+        pc.close();
+        pc = null;
+        dc = null;
+      }
+      $('offer').value = '';
+      $('offerInput').value = '';
+      $('answer').value = '';
+      $('qrcodeOffer').innerHTML = '';
+      $('qrcodeAnswer').innerHTML = '';
+      updateStatus('idle', 'ไม่ได้เชื่อมต่อ');
+      reconnectAttempts = 0;
+      settingsVisible = false;
+      const sections = ['createConnectionSection', 'receiveConnectionSection', 'answerSection'];
+      sections.forEach(id => $(id).classList.remove('connection-hidden'));
+      $('toggleSettingsBtn').classList.add('connection-hidden');
+      $('toggleSettingsBtn').textContent = '⚙️ แสดงการตั้งค่า';
+      showToast('🔄 รีเซ็ตทุกอย่างเรียบร้อย', 'info');
+    };
+
+    // ==== ระบบข้อความ ====
+    const sendMessage = () => {
+      const text = $('messageInput').value.trim();
       if (!text) return;
       if (!dc || dc.readyState !== "open") {
-        showToast("❌ ยังไม่ได้เชื่อมต่อ");
+        showToast('❌ ยังไม่ได้เชื่อมต่อ', 'error');
         return;
       }
-      dc.send(JSON.stringify({ type: "text", data: text }));
+      
+      const encryptedText = encrypt(text);
+      if (!encryptedText) return;
+      
+      dc.send(JSON.stringify({ type: "text", data: encryptedText }));
       appendMessage(text, "you");
-      $("messageInput").value = "";
+      $('messageInput').value = "";
+      adjustTextareaHeight($('messageInput'));
     };
 
-    // ==== รับข้อความ ====
+    const adjustTextareaHeight = (textarea) => {
+      textarea.style.height = 'auto';
+      textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+    };
+
+    // ==== Typing Indicator ====
+    const sendTyping = () => {
+      if (dc && dc.readyState === "open") {
+        dc.send(JSON.stringify({ type: "typing" }));
+      }
+    };
+
+    const showTypingIndicator = () => {
+      const indicator = $('typingIndicator');
+      indicator.classList.add('show');
+      clearTimeout(typingTimer);
+      typingTimer = setTimeout(() => {
+        indicator.classList.remove('show');
+      }, 3000);
+    };
+
+    // ==== Event Listeners ====
+    $('sendBtn').onclick = () => {
+      if (selectedFiles.length > 0) {
+        sendFiles();
+      } else {
+        sendMessage();
+      }
+    };
+
+    $('messageInput').onkeydown = (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    };
+
+    $('messageInput').oninput = (e) => {
+      adjustTextareaHeight(e.target);
+      sendTyping();
+    };
+
+    // ==== การค้นหาข้อความ ====
+    $('searchChat').oninput = (e) => {
+      const query = e.target.value.toLowerCase();
+      const messages = document.querySelectorAll('.message');
+      messages.forEach(msg => {
+        msg.style.display = msg.textContent.toLowerCase().includes(query) ? 'block' : 'none';
+      });
+    };
+
+    // ==== ระบบข้อความ ====
     const appendMessage = (msg, sender = "you") => {
+      const today = new Date().toLocaleDateString('th-TH');
+      const lastMessage = $("chatBox").lastChild;
+      if (!lastMessage || lastMessage.dataset.date !== today) {
+        const dateDivider = document.createElement("div");
+        dateDivider.className = "date-divider";
+        dateDivider.textContent = today;
+        dateDivider.dataset.date = today;
+        $("chatBox").appendChild(dateDivider);
+      }
+
       const div = document.createElement("div");
-      div.className = "message " + sender;
-      div.innerHTML = msg;
+      div.className = `message ${sender}`;
+      
+      const messageContent = document.createElement("div");
+      messageContent.innerHTML = msg;
+      
+      const timeDiv = document.createElement("div");
+      timeDiv.className = "message-time";
+      timeDiv.textContent = new Date().toLocaleTimeString('th-TH');
+      
+      div.appendChild(messageContent);
+      div.appendChild(timeDiv);
+      
       $("chatBox").appendChild(div);
       $("chatBox").scrollTop = $("chatBox").scrollHeight;
-      saveChat(sender, msg);
+      
+      saveChatEncrypted(sender, msg);
     };
 
-    // ==== ประวัติแชต ====
-    const saveChat = (sender, msg) => {
-      const chat = JSON.parse(localStorage.getItem("chat") || "[]");
-      chat.push({ sender, msg });
-      localStorage.setItem("chat", JSON.stringify(chat));
+    // ==== การแสดงตัวอย่างไฟล์ ====
+    const appendFilePreview = (file, sender) => {
+      if (file.type.startsWith('image/')) {
+        const img = document.createElement('img');
+        img.src = URL.createObjectURL(file);
+        img.style.maxWidth = '200px';
+        img.style.borderRadius = '8px';
+        img.style.marginTop = '8px';
+        appendMessage(img.outerHTML, sender);
+      } else {
+        appendMessage(`📎 ${file.name}`, sender);
+      }
     };
 
-    const loadChat = () => {
-      const chat = JSON.parse(localStorage.getItem("chat") || "[]");
-      chat.forEach(m => appendMessage(m.msg, m.sender));
+    // ==== ระบบประวัติแชตแบบเข้ารหัส ====
+    const saveChatEncrypted = (sender, msg) => {
+      const chat = JSON.parse(localStorage.getItem("encryptedChat") || "[]");
+      const encryptedMsg = encrypt(JSON.stringify({ sender, msg, time: Date.now() }));
+      if (encryptedMsg) {
+        chat.push(encryptedMsg);
+        localStorage.setItem("encryptedChat", JSON.stringify(chat));
+      }
     };
 
-    $("clearHistoryBtn").onclick = () => {
-      localStorage.removeItem("chat");
-      $("chatBox").innerHTML = "";
-      showToast("🧹 ล้างประวัติแชตแล้ว");
+    const loadChatEncrypted = () => {
+      const chat = JSON.parse(localStorage.getItem("encryptedChat") || "[]");
+      chat.forEach(encryptedMsg => {
+        try {
+          const decryptedData = JSON.parse(decrypt(encryptedMsg));
+          appendMessage(decryptedData.msg, decryptedData.sender);
+        } catch (e) {
+          console.error('Error decrypting message:', e);
+        }
+      });
     };
 
     // ==== รับข้อความจาก DataChannel ====
     const handleMessage = (e) => {
       if (typeof e.data === "string") {
         const msg = JSON.parse(e.data);
+        
         if (msg.type === "text") {
-          appendMessage(msg.data, "friend");
+          const decryptedText = decrypt(msg.data);
+          if (decryptedText) {
+            appendMessage(decryptedText, "friend");
+            notifyNewMessage(decryptedText);
+          }
+        } else if (msg.type === "typing") {
+          showTypingIndicator();
         } else if (msg.type === "file-meta") {
           fileMeta = msg.data;
           receiveBuffer = [];
           receivedSize = 0;
-          $("recvProgress").max = fileMeta.size;
-          $("recvProgress").value = 0;
-          $("recvProgress").style.display = "block";
+          const progressContainer = $("recvProgressContainer");
+          const progressBar = $("recvProgress");
+          const progressText = $("recvProgressText");
+          
+          progressContainer.style.display = "block";
+          progressBar.style.width = "0%";
+          progressText.textContent = `รับไฟล์ ${fileMeta.name}... 0%`;
         }
       } else {
-        // รับไฟล์เป็น ArrayBuffer
         receiveBuffer.push(e.data);
         receivedSize += e.data.byteLength;
-        $("recvProgress").value = receivedSize;
+        
+        const progress = (receivedSize / fileMeta.size) * 100;
+        const progressBar = $("recvProgress");
+        const progressText = $("recvProgressText");
+        
+        progressBar.style.width = progress + "%";
+        progressText.textContent = `รับไฟล์ ${fileMeta.name}... ${Math.round(progress)}%`;
+        
         if (receivedSize >= fileMeta.size) {
           const blob = new Blob(receiveBuffer);
-          const a = document.createElement("a");
-          a.href = URL.createObjectURL(blob);
-          a.download = fileMeta.name;
-          a.textContent = `📥 ดาวน์โหลดไฟล์: ${fileMeta.name}`;
-          appendMessage(a.outerHTML, "friend");
-          $("recvProgress").style.display = "none";
+          if (fileMeta.name.match(/\.(jpg|jpeg|png|gif)$/i)) {
+            const img = document.createElement('img');
+            img.src = URL.createObjectURL(blob);
+            img.style.maxWidth = '200px';
+            img.style.borderRadius = '8px';
+            img.style.marginTop = '8px';
+            appendMessage(img.outerHTML, "friend");
+          } else {
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = fileMeta.name;
+            a.textContent = `📥 ดาวน์โหลด: ${fileMeta.name}`;
+            appendMessage(a.outerHTML, "friend");
+          }
+          
+          $("recvProgressContainer").style.display = "none";
+          showToast('📥 รับไฟล์เรียบร้อย', 'success');
         }
       }
+    };
+
+    // ==== ระบบไฟล์ ====
+    const handleFileSelect = (files) => {
+      selectedFiles = Array.from(files);
+      displaySelectedFiles();
+    };
+
+    const displaySelectedFiles = () => {
+      const container = $('selectedFiles');
+      container.innerHTML = '';
+      
+      selectedFiles.forEach((file, index) => {
+        const div = document.createElement('div');
+        div.className = 'file-item';
+        div.innerHTML = `
+          <span>📎 ${file.name} (${formatFileSize(file.size)})</span>
+          <button onclick="removeFile(${index})" style="background: none; border: none; color: #DC3545; cursor: pointer;" aria-label="ลบไฟล์">❌</button>
+        `;
+        container.appendChild(div);
+      });
+    };
+
+    const removeFile = (index) => {
+      selectedFiles.splice(index, 1);
+      displaySelectedFiles();
+    };
+
+    const formatFileSize = (bytes) => {
+      if (bytes === 0) return '0 B';
+      const k = 1024;
+      const sizes = ['B', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    };
+
+    // ==== Drag & Drop ====
+    const dropZone = $('fileDropZone');
+    const fileInput = $('fileInput');
+
+    dropZone.onclick = () => fileInput.click();
+    fileInput.onchange = (e) => handleFileSelect(e.target.files);
+
+    dropZone.ondragover = (e) => {
+      e.preventDefault();
+      dropZone.classList.add('drag-over');
+    };
+
+    dropZone.ondragleave = () => {
+      dropZone.classList.remove('drag-over');
+    };
+
+    dropZone.ondrop = (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('drag-over');
+      handleFileSelect(e.dataTransfer.files);
     };
 
     // ==== ส่งไฟล์ ====
-    $("fileInput").onchange = () => {
-      const file = $("fileInput").files[0];
-      if (!file) return;
+    const sendFiles = async () => {
+      if (selectedFiles.length === 0) return;
       if (!dc || dc.readyState !== "open") {
-        showToast("❌ ยังไม่ได้เชื่อมต่อ");
+        showToast('❌ ยังไม่ได้เชื่อมต่อ', 'error');
         return;
       }
 
-      dc.send(JSON.stringify({ type: "file-meta", data: { name: file.name, size: file.size } }));
-
-      const chunkSize = 16384;
-      let offset = 0;
-      $("fileProgress").max = file.size;
-      $("fileProgress").value = 0;
-      $("fileProgress").style.display = "block";
-
-      const reader = new FileReader();
-      reader.onload = e => {
-        dc.send(e.target.result);
-        offset += e.target.result.byteLength;
-        $("fileProgress").value = offset;
-        if (offset < file.size) readSlice(offset);
-        else {
-          $("fileProgress").style.display = "none";
-          appendMessage(`📎 ส่งไฟล์: ${file.name}`, "you");
-          showToast("📤 ส่งไฟล์เสร็จแล้ว");
-        }
-      };
-
-      const readSlice = o => {
-        const slice = file.slice(o, o + chunkSize);
-        reader.readAsArrayBuffer(slice);
-      };
-      readSlice(0);
+      for (const file of selectedFiles) {
+        await sendSingleFile(file);
+      }
+      
+      selectedFiles = [];
+      displaySelectedFiles();
     };
 
-    // ==== ปุ่ม Copy/Paste ====
-    $("copyOfferBtn").onclick = () => {
-      navigator.clipboard.writeText($("offer").value).then(() => showToast("📋 คัดลอก Offer เรียบร้อย"));
+    const sendSingleFile = (file) => {
+      return new Promise((resolve) => {
+        dc.send(JSON.stringify({ type: "file-meta", data: { name: file.name, size: file.size } }));
+
+        const chunkSize = 16384;
+        let offset = 0;
+        const progressContainer = $("fileProgressContainer");
+        const progressBar = $("fileProgress");
+        const progressText = $("fileProgressText");
+        
+        progressContainer.style.display = "block";
+        progressBar.style.width = "0%";
+        progressText.textContent = `ส่งไฟล์ ${file.name}... 0%`;
+
+        const reader = new FileReader();
+        reader.onload = e => {
+          dc.send(e.target.result); // Fixed: Changed 'dc send' to 'dc.send'
+          offset += e.target.result.byteLength;
+          
+          const progress = (offset / file.size) * 100;
+          progressBar.style.width = progress + "%";
+          progressText.textContent = `ส่งไฟล์ ${file.name}... ${Math.round(progress)}%`;
+          
+          if (offset < file.size) {
+            readSlice(offset);
+          } else {
+            progressContainer.style.display = "none";
+            appendFilePreview(file, "you");
+            showToast('📤 ส่งไฟล์เรียบร้อย', 'success');
+            resolve();
+          }
+        };
+
+        const readSlice = o => {
+          const slice = file.slice(o, o + chunkSize);
+          reader.readAsArrayBuffer(slice);
+        };
+        
+        readSlice(0);
+      });
     };
-    $("copyAnswerBtn").onclick = () => {
-      navigator.clipboard.writeText($("answer").value).then(() => showToast("📋 คัดลอก Answer เรียบร้อย"));
+
+    // ==== ปุ่มต่างๆ ====
+    $('copyOfferBtn').onclick = () => {
+      navigator.clipboard.writeText($('offer').value).then(() => 
+        showToast('📋 คัดลอก Offer เรียบร้อย', 'success')
+      );
     };
-    $("pasteAnswerBtn").onclick = async () => {
-      try {
-        const text = await navigator.clipboard.readText();
-        $("answer").value = text;
-        showToast("📋 วาง Answer เรียบร้อย");
-      } catch {
-        showToast("❌ ไม่สามารถอ่านคลิปบอร์ดได้");
+
+    $('copyAnswerBtn').onclick = () => {
+      navigator.clipboard.writeText($('answer').value).then(() => 
+        showToast('📋 คัดลอก Answer เรียบร้อย', 'success')
+      );
+    };
+
+    $('clearOfferBtn').onclick = () => {
+      $('offer').value = '';
+      $('qrcodeOffer').innerHTML = '';
+      showToast('🗑️ ล้าง Offer เรียบร้อย', 'info');
+    };
+
+    $('clearOfferInputBtn').onclick = () => {
+      $('offerInput').value = '';
+      showToast('🗑️ ล้าง Offer Input เรียบร้อย', 'info');
+    };
+
+    $('clearAnswerBtn').onclick = () => {
+      $('answer').value = '';
+      $('qrcodeAnswer').innerHTML = '';
+      showToast('🗑️ ล้าง Answer เรียบร้อย', 'info');
+    };
+
+    $('clearHistoryBtn').onclick = () => {
+      if (confirm('ล้างประวัติแชตทั้งหมด?')) {
+        localStorage.removeItem("encryptedChat");
+        $("chatBox").innerHTML = "";
+        showToast('🧹 ล้างแชตเรียบร้อย', 'info');
       }
     };
 
-    // โหลดแชตเก่าเมื่อเปิดหน้าเว็บ
-    loadChat();
+    $('exportChatBtn').onclick = () => {
+      const chat = JSON.parse(localStorage.getItem("encryptedChat") || "[]");
+      if (chat.length === 0) {
+        showToast('❌ ไม่มีประวัติแชต', 'warning');
+        return;
+      }
+      
+      let exportData = "=== P2P Chat Export ===\n\n";
+      chat.forEach(encryptedMsg => {
+        try {
+          const decryptedData = JSON.parse(decrypt(encryptedMsg));
+          const time = new Date(decryptedData.time).toLocaleString('th-TH');
+          const sender = decryptedData.sender === 'you' ? 'คุณ' : 'เพื่อน';
+          exportData += `[${time}] ${sender}: ${decryptedData.msg}\n`;
+        } catch (e) {
+          console.error('Error decrypting message:', e);
+        }
+      });
+      
+      const blob = new Blob([exportData], { type: 'text/plain;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `chat_export_${new Date().toISOString().split('T')[0]}.txt`;
+      a.click();
+      
+      showToast('📤 ส่งออกแชตเรียบร้อย', 'success');
+    };
 
+    window.onload = () => {
+      loadChatEncrypted();
+      updateStatus('idle', 'ไม่ได้เชื่อมต่อ');
+      if ('Notification' in window && Notification.permission !== "granted") {
+        Notification.requestPermission();
+      }
+    };
+
+    window.onbeforeunload = () => {
+      if (pc) {
+        pc.close();
+      }
+    };
   </script>
 </body>
 </html>
