@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>P2P IPv6 Chat</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="chat-container">
+    <h2>IPv6 P2P Chat</h2>
+
+    <div id="chatBox" class="chat-box"></div>
+
+    <div class="input-area">
+      <input type="text" id="messageInput" placeholder="Type a message..." />
+      <button id="sendBtn">Send</button>
+    </div>
+
+    <div class="file-share">
+      <input type="file" id="fileInput" />
+      <progress id="fileProgress" value="0" max="100" style="width: 100%; display: none;"></progress>
+      <progress id="recvProgress" value="0" max="100" style="width: 100%; display: none;"></progress>
+    </div>
+
+    <hr />
+    <h3>Connection</h3>
+    <div><strong>Your IP:</strong> <span id="yourIP">N/A</span></div>
+    <div><strong>Peer IP:</strong> <span id="peerIP">N/A</span></div>
+
+    <textarea id="offer" placeholder="Paste offer here..."></textarea>
+    <button id="createOfferBtn">Create Offer</button>
+
+    <textarea id="answer" placeholder="Paste answer here..."></textarea>
+    <button id="createAnswerBtn">Answer Offer</button>
+
+    <div id="qrcode"></div>
+  </div>
+
+  <script src="qrcode.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
