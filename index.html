@@ -1,73 +1,300 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>P2P Chat with Saved Offers</title>
-<link rel="stylesheet" href="style.css" />
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>P2P Chat WebRTC (แยกช่อง Offer/Answer)</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 10px; background:#f0f2f5;}
+    textarea { width: 100%; height: 80px; margin-bottom: 8px; resize: vertical; font-family: monospace; }
+    button { margin: 5px 3px; padding: 6px 12px; }
+    .readonly { background:#eee; }
+    #chatBox { height: 200px; overflow-y: auto; background: white; padding: 10px; border: 1px solid #ccc; margin-bottom: 8px; }
+    .message { padding:5px 8px; border-radius: 12px; margin-bottom: 6px; max-width: 80%; word-wrap: break-word; }
+    .you { background: #dcf8c6; align-self: flex-end; margin-left: auto; }
+    .friend { background: #fff; border: 1px solid #ccc; align-self: flex-start; margin-right: auto; }
+    #chatContainer { display: flex; flex-direction: column; }
+    #toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: #fff; padding: 10px 20px; border-radius: 20px; opacity: 0; transition: opacity 0.5s ease; pointer-events: none; }
+    #qrcodeOffer, #qrcodeAnswer { margin: 10px 0; }
+    #fileProgress, #recvProgress { width: 100%; height: 16px; margin: 4px 0; display: none; }
+  </style>
 </head>
 <body>
 
-<div class="container">
+  <h2>ฝั่ง A (ผู้สร้าง Offer)</h2>
+  <button id="createOfferBtn">➕ Create Offer</button>
+  <button id="copyOfferBtn">📋 Copy Offer</button>
+  <textarea id="offer" readonly class="readonly" placeholder="Offer จะแสดงที่นี่"></textarea>
+  <div id="qrcodeOffer"></div>
 
-  <h1>P2P Chat (WebRTC) - จดจำเครื่องที่เคยติดต่อ</h1>
+  <hr />
 
-  <section class="offer-answer-section">
-    <div class="box">
-      <h2>Create Offer</h2>
-      <textarea id="offer" rows="4" placeholder="Offer จะแสดงที่นี่..." readonly></textarea>
-      <div class="btn-row">
-        <button id="createOfferBtn">สร้าง Offer</button>
-        <button id="copyOfferBtn">📋 คัดลอก Offer</button>
-      </div>
-      <div id="qrcodeOffer" class="qrcode"></div>
-    </div>
+  <h2>ฝั่ง B (ผู้รับ Offer)</h2>
+  <textarea id="offerInput" placeholder="วางข้อความ Offer ที่นี่ (จากฝั่ง A)"></textarea>
+  <button id="createAnswerBtn">🔁 Create Answer</button>
 
-    <div class="box">
-      <h2>Use Saved Offers</h2>
-      <select id="savedOffersSelect"><option value="">-- เลือก Offer ที่เคยสร้าง --</option></select>
-      <button id="useOfferBtn" class="fullwidth-btn">ใช้ Offer นี้</button>
-    </div>
+  <hr />
 
-    <div class="box">
-      <h2>Answer Offer</h2>
-      <textarea id="answer" rows="4" placeholder="วาง Answer ที่นี่..."></textarea>
-      <div class="btn-row">
-        <button id="createAnswerBtn">สร้าง Answer</button>
-        <button id="copyAnswerBtn">📋 คัดลอก Answer</button>
-        <button id="pasteAnswerBtn">📋 วาง Answer จากคลิปบอร์ด</button>
-      </div>
-      <div id="qrcodeAnswer" class="qrcode"></div>
-    </div>
-  </section>
+  <h2>Answer (ทั้งสองฝั่งใช้งานได้)</h2>
+  <textarea id="answer" placeholder="วาง Answer ที่นี่ (เพื่อเชื่อมต่อ)"></textarea>
+  <button id="pasteAnswerBtn">📋 Paste Answer</button>
+  <button id="copyAnswerBtn">📋 Copy Answer</button>
+  <div id="qrcodeAnswer"></div>
 
-  <section class="chat-section">
-    <div id="chatBox" class="chat-box"></div>
+  <hr />
 
-    <div class="input-row">
-      <input type="text" id="messageInput" placeholder="พิมพ์ข้อความ..." autocomplete="off" />
-      <button id="sendBtn">ส่ง</button>
-      <label for="fileInput" class="file-btn">📎 เลือกไฟล์</label>
-      <input type="file" id="fileInput" style="display:none" />
-    </div>
+  <h2>แชต (หลังเชื่อมต่อ)</h2>
+  <div id="chatBox"></div>
+  <input type="text" id="messageInput" placeholder="พิมพ์ข้อความ..." />
+  <button id="sendBtn">📨 ส่งข้อความ</button>
+  <input type="file" id="fileInput" />
+  <progress id="fileProgress" max="100" value="0"></progress>
+  <progress id="recvProgress" max="100" value="0"></progress>
 
-    <progress id="fileProgress" value="0" max="100" style="display:none"></progress>
-    <progress id="recvProgress" value="0" max="100" style="display:none; margin-top: 4px;"></progress>
+  <button id="clearHistoryBtn">🧹 ล้างประวัติแชต</button>
 
-    <button id="clearHistoryBtn" class="clear-btn">ล้างประวัติแชต</button>
-  </section>
+  <div id="toast"></div>
 
-  <section class="ip-section">
-    <p><strong>IP ของคุณ:</strong> <span id="yourIP">-</span></p>
-    <p><strong>IP ของเพื่อน:</strong> <span id="peerIP">-</span></p>
-  </section>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+  <script>
+    // ==== ตัวช่วย ====
+    const $ = id => document.getElementById(id);
+    const showToast = (msg) => {
+      const toast = $("toast");
+      toast.textContent = msg;
+      toast.style.opacity = "1";
+      setTimeout(() => toast.style.opacity = "0", 3000);
+    };
 
-</div>
+    // ==== ตัวแปร WebRTC ====
+    let pc, dc;
+    let receiveBuffer = [], receivedSize = 0, fileMeta = null;
+    const config = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
 
-<div id="toast"></div>
+    const createPeer = () => {
+      pc = new RTCPeerConnection(config);
+      pc.onicecandidate = e => {
+        if (!e.candidate) console.log("ICE gathering complete");
+      };
+      pc.ondatachannel = e => setupDataChannel(e.channel);
+    };
 
-<script src="app.js"></script>
+    const setupDataChannel = (channel) => {
+      dc = channel;
+      dc.onopen = () => {
+        showToast("🟢 Connected");
+      };
+      dc.onmessage = handleMessage;
+      dc.onclose = () => {
+        showToast("🔴 Disconnected");
+      };
+    };
 
+    const waitICE = () => new Promise((res) => {
+      if (pc.iceGatheringState === "complete") return res();
+      pc.addEventListener("icegatheringstatechange", () => {
+        if (pc.iceGatheringState === "complete") res();
+      });
+    });
+
+    // ==== สร้าง Offer ฝั่ง A ====
+    $("createOfferBtn").onclick = async () => {
+      try {
+        if (pc) { pc.close(); pc = null; dc = null; }
+        createPeer();
+        setupDataChannel(pc.createDataChannel("chat"));
+
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        await waitICE();
+
+        $("offer").value = JSON.stringify(pc.localDescription);
+
+        $("qrcodeOffer").innerHTML = "";
+        new QRCode("qrcodeOffer", { text: $("offer").value, width: 200, height: 200 });
+
+        showToast("🎁 สร้าง Offer เรียบร้อย");
+      } catch (e) {
+        console.error(e);
+        showToast("❌ สร้าง Offer ไม่สำเร็จ");
+      }
+    };
+
+    // ==== สร้าง Answer ฝั่ง B ====
+    $("createAnswerBtn").onclick = async () => {
+      const offerText = $("offerInput").value.trim();
+      if (!offerText) {
+        showToast("❌ กรุณาวาง Offer ก่อนสร้าง Answer");
+        return;
+      }
+      try {
+        if (pc) { pc.close(); pc = null; dc = null; }
+        createPeer();
+
+        const offer = JSON.parse(offerText);
+        await pc.setRemoteDescription(offer);
+
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+
+        await waitICE();
+
+        $("answer").value = JSON.stringify(pc.localDescription);
+
+        $("qrcodeAnswer").innerHTML = "";
+        new QRCode("qrcodeAnswer", { text: $("answer").value, width: 200, height: 200 });
+
+        showToast("✅ สร้าง Answer เรียบร้อย");
+      } catch (e) {
+        console.error(e);
+        showToast("❌ ข้อมูล Offer ไม่ถูกต้อง");
+      }
+    };
+
+    // ==== วาง Answer ฝั่ง A เพื่อเชื่อมต่อ ====
+    $("answer").addEventListener("input", async () => {
+      const answerText = $("answer").value.trim();
+      if (!answerText) return;
+      try {
+        const answer = JSON.parse(answerText);
+        if (pc && pc.signalingState !== "closed") {
+          await pc.setRemoteDescription(answer);
+          showToast("🔗 เชื่อมต่อกับ Answer เรียบร้อย");
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    });
+
+    // ==== ส่งข้อความ ====
+    $("sendBtn").onclick = () => {
+      const text = $("messageInput").value.trim();
+      if (!text) return;
+      if (!dc || dc.readyState !== "open") {
+        showToast("❌ ยังไม่ได้เชื่อมต่อ");
+        return;
+      }
+      dc.send(JSON.stringify({ type: "text", data: text }));
+      appendMessage(text, "you");
+      $("messageInput").value = "";
+    };
+
+    // ==== รับข้อความ ====
+    const appendMessage = (msg, sender = "you") => {
+      const div = document.createElement("div");
+      div.className = "message " + sender;
+      div.innerHTML = msg;
+      $("chatBox").appendChild(div);
+      $("chatBox").scrollTop = $("chatBox").scrollHeight;
+      saveChat(sender, msg);
+    };
+
+    // ==== ประวัติแชต ====
+    const saveChat = (sender, msg) => {
+      const chat = JSON.parse(localStorage.getItem("chat") || "[]");
+      chat.push({ sender, msg });
+      localStorage.setItem("chat", JSON.stringify(chat));
+    };
+
+    const loadChat = () => {
+      const chat = JSON.parse(localStorage.getItem("chat") || "[]");
+      chat.forEach(m => appendMessage(m.msg, m.sender));
+    };
+
+    $("clearHistoryBtn").onclick = () => {
+      localStorage.removeItem("chat");
+      $("chatBox").innerHTML = "";
+      showToast("🧹 ล้างประวัติแชตแล้ว");
+    };
+
+    // ==== รับข้อความจาก DataChannel ====
+    const handleMessage = (e) => {
+      if (typeof e.data === "string") {
+        const msg = JSON.parse(e.data);
+        if (msg.type === "text") {
+          appendMessage(msg.data, "friend");
+        } else if (msg.type === "file-meta") {
+          fileMeta = msg.data;
+          receiveBuffer = [];
+          receivedSize = 0;
+          $("recvProgress").max = fileMeta.size;
+          $("recvProgress").value = 0;
+          $("recvProgress").style.display = "block";
+        }
+      } else {
+        // รับไฟล์เป็น ArrayBuffer
+        receiveBuffer.push(e.data);
+        receivedSize += e.data.byteLength;
+        $("recvProgress").value = receivedSize;
+        if (receivedSize >= fileMeta.size) {
+          const blob = new Blob(receiveBuffer);
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = fileMeta.name;
+          a.textContent = `📥 ดาวน์โหลดไฟล์: ${fileMeta.name}`;
+          appendMessage(a.outerHTML, "friend");
+          $("recvProgress").style.display = "none";
+        }
+      }
+    };
+
+    // ==== ส่งไฟล์ ====
+    $("fileInput").onchange = () => {
+      const file = $("fileInput").files[0];
+      if (!file) return;
+      if (!dc || dc.readyState !== "open") {
+        showToast("❌ ยังไม่ได้เชื่อมต่อ");
+        return;
+      }
+
+      dc.send(JSON.stringify({ type: "file-meta", data: { name: file.name, size: file.size } }));
+
+      const chunkSize = 16384;
+      let offset = 0;
+      $("fileProgress").max = file.size;
+      $("fileProgress").value = 0;
+      $("fileProgress").style.display = "block";
+
+      const reader = new FileReader();
+      reader.onload = e => {
+        dc.send(e.target.result);
+        offset += e.target.result.byteLength;
+        $("fileProgress").value = offset;
+        if (offset < file.size) readSlice(offset);
+        else {
+          $("fileProgress").style.display = "none";
+          appendMessage(`📎 ส่งไฟล์: ${file.name}`, "you");
+          showToast("📤 ส่งไฟล์เสร็จแล้ว");
+        }
+      };
+
+      const readSlice = o => {
+        const slice = file.slice(o, o + chunkSize);
+        reader.readAsArrayBuffer(slice);
+      };
+      readSlice(0);
+    };
+
+    // ==== ปุ่ม Copy/Paste ====
+    $("copyOfferBtn").onclick = () => {
+      navigator.clipboard.writeText($("offer").value).then(() => showToast("📋 คัดลอก Offer เรียบร้อย"));
+    };
+    $("copyAnswerBtn").onclick = () => {
+      navigator.clipboard.writeText($("answer").value).then(() => showToast("📋 คัดลอก Answer เรียบร้อย"));
+    };
+    $("pasteAnswerBtn").onclick = async () => {
+      try {
+        const text = await navigator.clipboard.readText();
+        $("answer").value = text;
+        showToast("📋 วาง Answer เรียบร้อย");
+      } catch {
+        showToast("❌ ไม่สามารถอ่านคลิปบอร์ดได้");
+      }
+    };
+
+    // โหลดแชตเก่าเมื่อเปิดหน้าเว็บ
+    loadChat();
+
+  </script>
 </body>
 </html>
